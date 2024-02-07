@@ -16,6 +16,14 @@ mongoose
 
 app.use(express.json());
 
+app.use((err, req, res, next) => {
+  if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+      return res.status(400).json({ error: 'Invalid JSON' });
+  }
+  next();
+});
+
+
 app.get('/users', async (req, res, next) => {
     try {
         const allUsers = await User.find({});
@@ -27,8 +35,15 @@ app.get('/users', async (req, res, next) => {
 
 app.get('/users/:id', async (req, res, next) => {
   const id = req.params.id;
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ error: 'Invalid user ID' });
+  }
+
   try {
       const user = await User.findById(id);
+
+      
+
       res.json(user);
   } catch(error) {
       next(error);
@@ -37,6 +52,12 @@ app.get('/users/:id', async (req, res, next) => {
 
 app.delete('/users/delete/:id', async (req, res, next) => {
   const id = req.params.id;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ error: 'Invalid user ID' });
+  }
+
+
   try {
     const deletedUser = await User.findByIdAndDelete(id);
 
@@ -65,9 +86,30 @@ app.post('/users/create', async (req, res, next) => {
   }
 });
 
+app.post('/users/login', async (req, res, next) => {
+  const { email, password} = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ error: 'email, and password are required' });
+  }
+  try {
+      const user = await User.findOne({email, password});
+      if(!user) {
+        res.status(201).json({ message: 'User not found'});
+      }
+      res.status(201).json({ message: 'Success, logged in', user });
+  } catch (error) {
+      next(error);
+  }
+});
+
 app.put('/users/update/:id', async (req, res, next) => {
   const { email, name, password } = req.body;
   const id = req.params.id;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ error: 'Invalid user ID' });
+  }
 
   try {
       const updatedUser = await User.findByIdAndUpdate(id, { email, name, password }, { new: true });
